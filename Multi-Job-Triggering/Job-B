@@ -1,0 +1,45 @@
+pipeline {
+    agent any
+
+    environment {
+        MVN_HOME = '/opt/apache-maven-3.8.6'                         // Path to Maven
+        DOCKER_IMAGE = 'tomcat:9.0'                                  // Docker image for Tomcat
+        CONTAINER_NAME = 'tomcat-container'
+    }
+
+    stages {
+        stage('War Deploy to Tomcat') {
+            steps {
+                script {
+                    // Copy the WAR file to the Tomcat webapps directory
+                    def warFile = findFiles(glob: '**/target/*.war')[0].path
+                    
+                    // Copy the WAR file into the Tomcat container
+                    sh "docker cp ${warFile} ${CONTAINER_NAME}:/usr/local/tomcat/webapps/"
+                }
+            }
+        }
+
+        // New Stage: Display Container IP and Port
+        stage('Display Container IP and Port') {
+            steps {
+                script {
+                    // Get container IP and port mapping
+                    def containerIp = sh(script: "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${CONTAINER_NAME}", returnStdout: true).trim()
+                    
+                    // Display container IP and port
+                    echo "The application is running at: http://${containerIp}:8084/webapp"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Job D Build and Deployment Successful'
+        }
+        failure {
+            echo 'Job D Build or Deployment Failed'
+        }
+    }
+}
