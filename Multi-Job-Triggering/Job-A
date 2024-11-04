@@ -1,0 +1,61 @@
+pipeline {
+    agent any
+
+    environment {
+        MVN_HOME = '/opt/apache-maven-3.8.6'                         // Path to Maven
+        DOCKER_IMAGE = 'tomcat:9.0'                                  // Docker image for Tomcat
+        CONTAINER_NAME = 'tomcat-container'
+    }
+
+    triggers {
+        // Trigger the build automatically when changes are pushed to GitHub
+        githubPush()
+    }
+	
+    stages {
+        stage('Checkout Code') {
+            steps {
+                git url: 'https://github.com/manishktomar/hello-world.git', branch: 'master'
+            }
+        }
+
+        stage('Build with Maven') {
+            steps {
+                // Assuming Maven is installed and available in the Jenkins environment
+                sh '/opt/apache-maven-3.9.6/bin/mvn clean install'
+            }
+        }
+    
+        stage('Docker Setup') {
+               steps {
+                script {
+                    // Stop and remove the container if it already exists
+                    sh "docker rm -f ${CONTAINER_NAME} || true"
+
+                    // Pull the Tomcat Docker image
+                    sh "docker pull ${DOCKER_IMAGE}"
+                    
+                    // Start the Tomcat container in detached mode
+                    sh "docker run -d --name ${CONTAINER_NAME} -p 8084:8080 ${DOCKER_IMAGE}"
+                }
+            }
+        }
+
+        stage('War Deploy to Tomcat Pipeline') {
+            steps {
+                script {
+                    build job: "job_d", wait: true
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo 'Job A Build and Deployment Successful'
+        }
+        failure {
+            echo 'Job A Build or Deployment Failed'
+        }
+    }
+}
